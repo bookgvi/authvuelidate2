@@ -1,61 +1,55 @@
-"use strict";
+import axios from 'axios'
+import Vue from 'vue'
 
-import Vue from 'vue';
-import axios from "axios";
+const config = {
+  baseURL: 'https://pre.ugoloc.ucann.ru/api'
+}
 
-// Full config:  https://github.com/axios/axios#request-config
-// axios.defaults.baseURL = process.env.baseURL || process.env.apiUrl || '';
-// axios.defaults.headers.common['Authorization'] = AUTH_TOKEN;
-// axios.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded';
+const instance = axios.create(config)
 
-let config = {
-  // baseURL: process.env.baseURL || process.env.apiUrl || ""
-  // timeout: 60 * 1000, // Timeout
-  // withCredentials: true, // Check cross-site Access-Control
-};
-
-const _axios = axios.create(config);
-
-_axios.interceptors.request.use(
-  function(config) {
-    // Do something before request is sent
-    return config;
-  },
-  function(error) {
-    // Do something with request error
-    return Promise.reject(error);
+instance.interceptors.request.use(config => {
+  const token = localStorage.getItem('jwt')
+  if (token) {
+    config.headers.common['Authorization'] = `Bearer ${token}`
   }
-);
+  return config
+}, error => Promise.reject(error))
 
-// Add a response interceptor
-_axios.interceptors.response.use(
-  function(response) {
-    // Do something with response data
-    return response;
-  },
-  function(error) {
-    // Do something with response error
-    return Promise.reject(error);
+instance.interceptors.response.use(response => {
+  return response
+}, error => {
+  const response = error.response
+  if (response) {
+    // eslint-disable-next-line no-console
+    switch (response.status) {
+      case 401:
+      case 403:
+        localStorage.removeItem('jwt')
+        // location.reload(true)
+        break
+    }
   }
-);
+  return Promise.reject(error.response)
+})
 
-Plugin.install = function(Vue, options) {
-  Vue.axios = _axios;
-  window.axios = _axios;
+Plugin.install = function (Vue) {
+  Vue.$http = instance
+  window.$http = instance
+  
   Object.defineProperties(Vue.prototype, {
-    axios: {
+    $http: {
       get() {
-        return _axios;
+        return instance
       }
     },
-    $axios: {
+    http: {
       get() {
-        return _axios;
+        return instance
       }
-    },
-  });
-};
+    }
+  })
+}
 
 Vue.use(Plugin)
 
-export default Plugin;
+export default Plugin
